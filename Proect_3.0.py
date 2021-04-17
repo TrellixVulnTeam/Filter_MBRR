@@ -7,6 +7,8 @@ from kivy.clock import Clock
 from kivy.graphics.texture import Texture
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.camera import Camera
+from kivy.lang import Builder
 import cv2
 import numpy as np
 import statistics
@@ -30,15 +32,13 @@ class CamApp(App):
     def build(self):
         main_layout = FloatLayout(size=(300, 300))
 
+        self.camera = Camera(resolution=(640, 480), play=True, pos_hint={'x': 0, 'y': .25}, size_hint=(1, .65))
+        main_layout.add_widget(self.camera)
+
         self.label = Label(text='0р', font_size=20, pos_hint={'x': .45, 'y': .9}, size_hint=(.1, .1), color=[1, 1, 1, 1])
         main_layout.add_widget(self.label)
 
-        self.img1 = Image(color=[1, 1, 1, 1], pos_hint={'x': 0, 'y': .25}, size_hint=(1, .65))
-        main_layout.add_widget(self.img1)
-        self.capture = cv2.VideoCapture(0)
-
-
-        self.slider = Slider(min=45, max=90, value=70, pos_hint={'x': 0, 'y': .2}, size_hint=(1, .05))
+        self.slider = Slider(min=45, max=60, value=46, pos_hint={'x': 0, 'y': .2}, size_hint=(1, .05))
         main_layout.add_widget(self.slider)
         self.slider_value = self.slider.value
 
@@ -46,40 +46,23 @@ class CamApp(App):
         photo_button.bind(on_press=self.photo)
         main_layout.add_widget(photo_button)
 
-        Clock.schedule_interval(self.update, 1.0/60.0)
         return main_layout
 
-    def update(self, dt):
 
-        ret, frame = self.capture.read()
+    def photo(self, instance):
+        self.camera.export_to_png("new.png")
+
+        frame = cv2.imread("new.png")
 
         self.slider_value = round(self.slider.value)
 
         buf1 = cv2.flip(frame, 1)
         buf1 = cv2.flip(buf1, 0)
         self.fc = buf1.copy()
+
         self.circles = coindetect(buf1, 25, self.slider_value)
 
-        self.hsv = cv2.cvtColor(buf1, cv2.COLOR_BGR2HSV)
 
-        r = []
-        m = []
-        if len(self.circles) != 0:
-            for i in self.circles[0, :]:
-                cv2.circle(buf1, (i[0], i[1]), i[2], (0, 255, 0), 4)
-                cv2.circle(buf1, (i[0], i[1]), 2, (255, 0, 0), 7)
-                r.append(int(i[2]))
-                m.append((i[0], i[1]))
-            r.sort()
-
-
-        buf = buf1.tostring()
-        texture1 = Texture.create(size=(frame.shape[1], frame.shape[0]), colorfmt='bgr')
-        texture1.blit_buffer(buf, colorfmt='bgr', bufferfmt='ubyte')
-
-        self.img1.texture = texture1
-
-    def photo(self, instance):
         summa = 0
         cnt = 0
 
@@ -97,7 +80,6 @@ class CamApp(App):
         kernel = kernel / sum(kernel)
 
         res = cv2.filter2D(self.fc, -1, kernel)
-        izobr = self.fc
 
         ten = self.circles.copy()
         ne_ten = self.circles.copy()
@@ -110,7 +92,6 @@ class CamApp(App):
                 er, ec = round(i[1] + kef * i[2]), round(i[0] + kef * i[2])
 
                 imgm = res[sr:er, sc:ec]
-                imgm = cv2.cvtColor(imgm, cv2.COLOR_RGB2BGR)
                 circle_ten = coindetect(imgm, 20, 40)
                 if len(circle_ten) > 0:
                     ne_ten = np.delete(ne_ten, cnt - min_ne_ten, axis=1)
@@ -141,12 +122,12 @@ class CamApp(App):
                 else:
                     summa += 2
 
+
         self.label.text = (str(summa) + "р")
 
 
         print("summa = {0}".format(summa))
         cv2.imshow('orange', res)
-        cv2.imwrite("izobr.png", izobr)
 
 
 if __name__ == '__main__':
